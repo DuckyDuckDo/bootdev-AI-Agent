@@ -8,6 +8,7 @@ from functions.get_files_info import schema_get_files_info, get_files_info
 from functions.get_file_content import schema_get_file_content, get_file_content
 from functions.write_file import schema_write_file, write_file
 from functions.run_python_file import schema_run_python_file, run_python_file
+from functions.call_function import call_function
 
 def main():
     # Load in the API Key
@@ -26,7 +27,20 @@ def main():
         prompt
     ]
     verbose = "--verbose" in sys.argv
-    generate_content(client, messages, verbose)
+
+    for i in range(20):
+        print(f"{i+1} ------------ \n")
+        try:
+            response = generate_content(client, messages, verbose)
+            if response:
+                print(f'"Final Response": {response}')
+                return 
+            
+        except Exception as e:
+            print(e)
+            return 
+
+
 
 
 ######### HELPER FUNCTIONS ################
@@ -49,7 +63,8 @@ def generate_content(client, messages, verbose):
     - Execute Python files with optional arguments
     - Write or overwrite files
 
-    All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
+    All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons. 
+    After coming up with a plan, feel free to call said functions and execute the plan. 
     """
     response = client.models.generate_content(
                 model = "gemini-2.0-flash-001", 
@@ -60,7 +75,16 @@ def generate_content(client, messages, verbose):
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
 
-    # Calls the actual functions based on the prompt
+    # If there is a response, add the model response to the messages
+    if response.candidates:
+        for candidate in response.candidates:
+            messages.append(candidate.content)
+
+    # If no function calls are present, this is the end of the agent workflow, returns the final text response
+    if not response.function_calls:
+        return response.text
+    
+    # If there are function calls, decide them, and execute them here
     if response.function_calls:
         for function_call_part in response.function_calls:
             function_call_result = call_function(function_call_part, verbose)
@@ -68,53 +92,15 @@ def generate_content(client, messages, verbose):
                 raise Exception('Fatal error with function calling')
             if verbose:
                 print(f"-> {function_call_result.parts[0].function_response.response}")
-
-def call_function(function_call_part, verbose = False):
-    """
-    Helper function to call a function that the AI Agent decides to call based on prompt
-    """
-    # Dictionary of available functions to map name to function call
-    function_dictionary = {
-        'get_files_info': get_files_info,
-        'get_file_content': get_file_content,
-        'write_file': write_file,
-        'run_python_file': run_python_file
-    }
-
-    # Controls console print messages of functions being called
-    if verbose:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
-    else:
-        print(f" - Calling function: {function_call_part.name}")
-    
-    if function_call_part.name not in function_dictionary:
-        return types.Content(
-            role="tool",
-            parts=[
-                types.Part.from_function_response(
-                    name=function_call_part.name,
-                    response={"error": f"Unknown function: {function_call_part.name}"},
-                )
-            ],
-        )
-
-    function_to_call = function_dictionary[function_call_part.name]
-    
-    # Call the function
-    function_result = function_to_call(working_directory = './calculator', **function_call_part.args)
-
-    # Return the result
-    return types.Content(
-        role="tool",
-        parts=[
-            types.Part.from_function_response(
-                name=function_call_part.name,
-                response={"result": function_result},
+            
+            # Add any results of function calls to the AI conversation
+            message_to_add = types.Content(
+                role = "user",
+                parts = [types.Part.from_text(
+                    text = f"This is the result from {function_call_result.parts[0].function_response.name}: {function_call_result.parts[0].function_response.response}"
+                )]
             )
-        ],
-    )
-
-
+            messages.append(message_to_add)
 
 if __name__ == "__main__":
     main()
