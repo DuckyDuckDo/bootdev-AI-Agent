@@ -40,11 +40,9 @@ def main():
             print(e)
             return 
 
-
-
-
-######### HELPER FUNCTIONS ################
 def generate_content(client, messages, verbose):
+
+    # This declares schemas for available functions that our AI Agent will have access to as it processes the prompts and suggests fixes"
     available_functions = types.Tool(
         function_declarations=[
             schema_run_python_file,
@@ -53,6 +51,7 @@ def generate_content(client, messages, verbose):
             schema_write_file
         ]
     )
+    
     system_prompt = """
     You are a helpful AI coding agent.
 
