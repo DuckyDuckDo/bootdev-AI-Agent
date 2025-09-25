@@ -1,5 +1,20 @@
 import os
 from config import CHAR_LIMIT
+from google.genai import types
+
+schema_get_file_content = types.FunctionDeclaration(
+    name = "get_file_content",
+    description = "Read the content of a file constrained to working directory",
+    parameters = types.Schema(
+        type = types.Type.OBJECT,
+        properties = {
+            "file_path": types.Schema(
+                type = types.Type.STRING,
+                description = "The path to the file from which to read from"
+            ),
+        }
+    )
+)
 
 def get_file_content(working_directory, file_path):
     full_path = os.path.join(working_directory, file_path)
