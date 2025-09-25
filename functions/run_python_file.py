@@ -47,10 +47,11 @@ def run_python_file(working_directory, file_path, args = []):
         result = subprocess.run(args = passed_args, timeout = 30, capture_output = True, text = True)
 
         output = []
+        print(result)
         if result.stdout:
-            output.append(f"STDOUT:\n{result.stdout}")
+            output.append(f"STDOUT:\n {result.stdout}")
         if result.stderr:
-            output.append(f"STDERR:\n{result.stderr}")
+            output.append(f"STDERR:\n {result.stderr}")
 
         if result.returncode != 0:
             output.append(f"Process exited with code {result.returncode}")
